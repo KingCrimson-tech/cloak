@@ -259,6 +259,13 @@ select {
   object-fit: cover;
 }
 
+.stage__pause-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
 .hud {
   position: absolute;
   font-size: 0.8rem;

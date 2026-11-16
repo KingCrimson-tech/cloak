@@ -200,7 +200,7 @@ export class CaptureSession {
   }
 
   pause() {
-    if (this.paused || !this.screenRecorder) return
+    if (this.paused || this.screenRecorder?.state !== 'recording') return
     if (this.screenRecorder.state === 'recording') this.screenRecorder.pause()
     if (this.camRecorder?.state === 'recording') this.camRecorder.pause()
     this.pauseStartedAt = performance.now()

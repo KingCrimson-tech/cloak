@@ -24,6 +24,17 @@ export default function LiveView({ screenStream, camStream, elapsed, paused, pip
     if (camRef.current) camRef.current.srcObject = camStream || null
   }, [camStream])
 
+  // Pausing the elements displaying the live streams freezes the visible
+  // frames too, not just the timer — resuming restores both previews.
+  useEffect(() => {
+    for (const ref of [screenRef, camRef]) {
+      const video = ref.current
+      if (!video) continue
+      if (paused) video.pause()
+      else video.play().catch(() => {})
+    }
+  }, [paused, screenStream, camStream])
+
   return (
     <div className="stage">
       <video ref={screenRef} className="stage__screen" autoPlay playsInline muted />
@@ -45,6 +56,7 @@ export default function LiveView({ screenStream, camStream, elapsed, paused, pip
         <span className={paused ? 'hud__dot hud__dot--paused' : 'hud__dot'} />
         {formatTime(elapsed)}
       </div>
+      {paused && <div className="stage__pause-veil" aria-hidden="true" />}
       {paused && <div className="hud hud--badge">Paused</div>}
     </div>
   )
