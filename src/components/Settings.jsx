@@ -1,5 +1,5 @@
 import { useStore } from '../store.js'
-import { clamp } from '../lib/timeline.js'
+import { clamp, clampPipPosition } from '../lib/timeline.js'
 
 const CORNERS = [
   { key: 'tl', name: 'Top left', glyph: '↖', x: 'left', y: 'top' },
@@ -17,14 +17,16 @@ export default function Settings() {
   const setQuality = useStore((s) => s.setQuality)
 
   const applyCorner = (corner) => {
-    // `size` is a fraction of frame width; convert to a y-radius using the
-    // frame's aspect ratio so the circle stays inside the frame.
-    const rx = Math.min(0.5, pip.size / 2)
-    const ry = Math.min(0.5, (pip.size * frameAspect) / 2)
-    setPip({
-      x: corner.x === 'right' ? 1 - rx : rx,
-      y: corner.y === 'bottom' ? 1 - ry : ry,
-    })
+    // `size` is a fraction of frame width; clamping uses the frame aspect so
+    // the circle stays fully inside the frame in both axes.
+    setPip(
+      clampPipPosition(
+        corner.x === 'right' ? 1 : 0,
+        corner.y === 'bottom' ? 1 : 0,
+        pip.size,
+        frameAspect,
+      ),
+    )
   }
 
   return (
@@ -58,13 +60,7 @@ export default function Settings() {
           value={clamp(pip.size, 0.08, 0.4)}
           onChange={(e) => {
             const size = Number(e.target.value)
-            const rx = size / 2
-            const ry = (size * frameAspect) / 2
-            setPip({
-              size,
-              x: clamp(pip.x, rx, 1 - rx),
-              y: clamp(pip.y, ry, 1 - ry),
-            })
+            setPip({ size, ...clampPipPosition(pip.x, pip.y, size, frameAspect) })
           }}
         />
       </label>

@@ -66,6 +66,25 @@ export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
+/**
+ * Clamp a PiP centre so the whole circle stays inside the frame. `size` is a
+ * fraction of frame width, so the y-radius needs the frame's aspect ratio.
+ */
+export function clampPipPosition(x, y, size, aspect) {
+  const rx = Math.min(0.5, size / 2)
+  const ry = Math.min(0.5, (size * aspect) / 2)
+  return { x: clamp(x, rx, 1 - rx), y: clamp(y, ry, 1 - ry) }
+}
+
+/** Largest PiP size (fraction of frame width) that fits at the given centre. */
+export function maxPipSize(x, y, aspect) {
+  return Math.min(
+    0.4,
+    2 * Math.min(x, 1 - x),
+    (2 * Math.min(y, 1 - y)) / aspect,
+  )
+}
+
 /** Format seconds as `m:ss` (or `h:mm:ss`) for the HUD. */
 export function formatTime(seconds) {
   const total = Math.max(0, Math.floor(seconds))

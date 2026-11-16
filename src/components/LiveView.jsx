@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useStore } from '../store.js'
 import { formatTime } from '../lib/timeline.js'
 
 /** Position a square PiP from the normalized { x, y, size } geometry. */
@@ -13,6 +14,9 @@ export function pipStyle(pip) {
 }
 
 export default function LiveView({ screenStream, camStream, elapsed, paused, pip }) {
+  const frameAspect = useStore((s) => s.frameAspect)
+  const setFrameAspect = useStore((s) => s.setFrameAspect)
+
   const screenRef = useRef(null)
   const camRef = useRef(null)
 
@@ -36,8 +40,20 @@ export default function LiveView({ screenStream, camStream, elapsed, paused, pip
   }, [paused, screenStream, camStream])
 
   return (
-    <div className="stage">
-      <video ref={screenRef} className="stage__screen" autoPlay playsInline muted />
+    <div className="stage" style={{ aspectRatio: frameAspect }}>
+      <video
+        ref={screenRef}
+        className="stage__screen"
+        autoPlay
+        playsInline
+        muted
+        onLoadedMetadata={(e) => {
+          const video = e.currentTarget
+          if (video.videoWidth && video.videoHeight) {
+            setFrameAspect(video.videoWidth / video.videoHeight)
+          }
+        }}
+      />
 
       {camStream && (
         <div className="stage__pip" style={pipStyle(pip)}>

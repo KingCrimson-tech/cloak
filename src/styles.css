@@ -310,6 +310,26 @@ select {
 .stage__pip--review {
   pointer-events: auto;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.stage__pip--review.is-dragging {
+  cursor: grabbing;
+}
+
+.pip-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 2;
 }
 
 .review__grid {

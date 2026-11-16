@@ -5,6 +5,8 @@ import {
   keptRanges,
   activeToSource,
   sourceToActive,
+  clampPipPosition,
+  maxPipSize,
 } from './timeline.js'
 
 test('no pauses: active time equals wall time', () => {
@@ -62,4 +64,20 @@ test('pausing then stopping closes the final segment cleanly', () => {
 test('pause bounds are clamped to the recording duration', () => {
   assert.deepEqual(keptRanges(5, [{ start: 4, end: 99 }]), [[0, 4]])
   assert.deepEqual(keptRanges(5, [{ start: -2, end: 1 }]), [[1, 5]])
+})
+
+test('PiP position clamps so the circle stays inside the frame', () => {
+  const aspect = 16 / 9
+  assert.deepEqual(clampPipPosition(-1, 2, 0.2, aspect), {
+    x: 0.1,
+    y: 1 - (0.2 * aspect) / 2,
+  })
+  assert.deepEqual(clampPipPosition(0.5, 0.5, 0.2, aspect), { x: 0.5, y: 0.5 })
+})
+
+test('PiP size is bounded by the available space at its centre', () => {
+  const aspect = 16 / 9
+  assert.equal(maxPipSize(0.5, 0.5, aspect), 0.4)
+  assert.ok(maxPipSize(0.1, 0.1, aspect) < 0.2)
+  assert.ok(maxPipSize(0.05, 0.5, aspect) <= 0.1)
 })
