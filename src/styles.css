@@ -299,6 +299,90 @@ select {
   text-transform: uppercase;
 }
 
+/* Review: trim + settings. */
+.stage__pip--review {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.review__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.review__grid h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.25rem;
+}
+
+.trim-panel {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.trim-row {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-content: start;
+}
+
+.settings__group {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.settings__label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.settings__value {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings__slider input {
+  width: 180px;
+}
+
+.settings__reset {
+  align-self: end;
+}
+
+.corner-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 34px);
+  gap: 4px;
+}
+
+.corner-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: #f4f4f5;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.corner-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .progress {
   height: 8px;
   border-radius: 999px;

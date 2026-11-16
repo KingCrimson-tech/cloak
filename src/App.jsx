@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { CaptureSession } from './lib/capture.js'
 import LiveView from './components/LiveView.jsx'
+import Review from './components/Review.jsx'
 import ErrorBanner from './components/ErrorBanner.jsx'
 
 export default function App() {
@@ -178,9 +179,11 @@ export default function App() {
 
       {phase === 'recorded' && (
         <section className="panel">
-          <h2>Recording captured</h2>
-          <p className="muted">Review and trim will appear here.</p>
-          <button className="button button--ghost" onClick={discard}>Discard</button>
+          <h2>Review &amp; trim</h2>
+          <Review />
+          <div className="controls">
+            <button className="button button--ghost" onClick={discard}>Discard</button>
+          </div>
         </section>
       )}
 
