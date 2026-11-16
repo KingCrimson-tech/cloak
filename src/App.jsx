@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { CaptureSession } from './lib/capture.js'
+import { exportToMp4, exportFilename } from './lib/exporter.js'
 import LiveView from './components/LiveView.jsx'
 import Review from './components/Review.jsx'
 import ErrorBanner from './components/ErrorBanner.jsx'
@@ -12,6 +13,10 @@ export default function App() {
   const blur = useStore((s) => s.blur)
   const quality = useStore((s) => s.quality)
   const pip = useStore((s) => s.pip)
+  const progress = useStore((s) => s.progress)
+  const progressLabel = useStore((s) => s.progressLabel)
+  const downloadUrl = useStore((s) => s.downloadUrl)
+  const downloadName = useStore((s) => s.downloadName)
   const setPhase = useStore((s) => s.setPhase)
   const setError = useStore((s) => s.setError)
   const clearError = useStore((s) => s.clearError)
@@ -19,6 +24,8 @@ export default function App() {
   const setBlur = useStore((s) => s.setBlur)
   const setQuality = useStore((s) => s.setQuality)
   const setRecordings = useStore((s) => s.setRecordings)
+  const setProgress = useStore((s) => s.setProgress)
+  const setDownload = useStore((s) => s.setDownload)
   const reset = useStore((s) => s.reset)
 
   const sessionRef = useRef(null)
@@ -90,6 +97,30 @@ export default function App() {
     sessionRef.current?.resume()
     setPhase('recording')
   }, [setPhase])
+
+  const startExport = useCallback(async () => {
+    const state = useStore.getState()
+    setPhase('exporting')
+    setProgress(0, 'Preparing')
+    try {
+      const blob = await exportToMp4(
+        {
+          screenBlob: state.screenBlob,
+          camBlob: state.camBlob,
+          offsetSec: state.offsetSec,
+          keptRanges: state.keptRanges,
+          trim: state.trim,
+          pip: state.pip,
+          quality: state.quality,
+        },
+        (value, label) => setProgress(value, label),
+      )
+      setDownload(blob, exportFilename())
+    } catch (err) {
+      setError(err?.message || 'Export failed. Please try again.')
+      setPhase('recorded')
+    }
+  }, [setDownload, setError, setPhase, setProgress])
 
   const discard = useCallback(() => {
     reset()
@@ -182,15 +213,44 @@ export default function App() {
           <h2>Review &amp; trim</h2>
           <Review />
           <div className="controls">
+            <button className="button button--primary" onClick={startExport}>
+              Export MP4
+            </button>
             <button className="button button--ghost" onClick={discard}>Discard</button>
           </div>
         </section>
       )}
 
-      {(phase === 'exporting' || phase === 'done') && (
+      {phase === 'exporting' && (
         <section className="panel">
-          <p>Export is handled in the export step.</p>
-          <button className="button button--ghost" onClick={discard}>Start over</button>
+          <h2>Exporting…</h2>
+          <p className="muted">{progressLabel || 'Processing'}</p>
+          <div
+            className="progress"
+            role="progressbar"
+            aria-valuenow={Math.round(progress * 100)}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div
+              className="progress__bar"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+          <p className="muted">{Math.round(progress * 100)}%</p>
+        </section>
+      )}
+
+      {phase === 'done' && (
+        <section className="panel">
+          <h2>Your video is ready</h2>
+          <p className="muted">Saved locally — nothing was uploaded.</p>
+          <div className="controls">
+            <a className="button button--primary" href={downloadUrl} download={downloadName}>
+              Download {downloadName}
+            </a>
+            <button className="button button--ghost" onClick={discard}>Start over</button>
+          </div>
         </section>
       )}
 
