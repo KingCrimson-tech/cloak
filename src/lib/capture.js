@@ -22,6 +22,13 @@ function pickMimeType(candidates) {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || ''
 }
 
+function supportsCanvasCapture() {
+  return (
+    typeof document !== 'undefined' &&
+    typeof document.createElement('canvas').captureStream === 'function'
+  )
+}
+
 function stopTracks(stream) {
   stream?.getTracks?.().forEach((track) => {
     try {
@@ -110,9 +117,26 @@ export class CaptureSession {
     // 3. Optional local blur runs on the camera video track *before* it is
     //    previewed or recorded. The original mic audio is preserved.
     if (blur && camVideoTrack) {
-      this.blurPipeline = createBlurPipeline(camVideoTrack)
-      this.processedCamStream = this.blurPipeline.stream
-      camVideoTrack = this.processedCamStream.getVideoTracks()[0]
+      if (supportsCanvasCapture()) {
+        this.blurPipeline = createBlurPipeline(camVideoTrack)
+        this.processedCamStream = this.blurPipeline.stream
+        const processedTrack = this.processedCamStream?.getVideoTracks()[0]
+        if (processedTrack) {
+          camVideoTrack = processedTrack
+        } else {
+          // Defensive: some browsers delay creating the captureStream track.
+          this.blurPipeline.destroy()
+          this.blurPipeline = null
+          this.processedCamStream = null
+          this.onWarning(
+            'Background blur is unavailable in this browser — using the raw camera.',
+          )
+        }
+      } else {
+        this.onWarning(
+          'Background blur is unavailable in this browser — using the raw camera.',
+        )
+      }
     }
 
     if (camVideoTrack) {

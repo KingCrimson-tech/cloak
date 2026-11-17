@@ -173,6 +173,11 @@ export default function App() {
               <span>Blur webcam background (on-device)</span>
             </label>
           </div>
+          {blur && (
+            <p className="muted field-note">
+              Approximate canvas blur, processed locally. No model download or network request.
+            </p>
+          )}
           <button className="button button--primary" onClick={start} disabled={busy}>
             Start recording
           </button>

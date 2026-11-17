@@ -88,7 +88,16 @@ export function createBlurPipeline(sourceTrack) {
       cancelAnimationFrame(raf)
       video.pause()
       video.srcObject = null
-      stream.getTracks().forEach((track) => track.stop())
+      stream.getTracks().forEach((track) => {
+        try {
+          track.stop()
+        } catch {
+          /* already stopped */
+        }
+      })
+      // Drop references so the hidden canvas/video can be collected.
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      maskCtx.clearRect(0, 0, mask.width, mask.height)
     },
   }
 }
