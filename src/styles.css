@@ -486,3 +486,27 @@ select {
   background: linear-gradient(90deg, var(--accent-strong), var(--accent));
   transition: width 160ms ease;
 }
+
+@media (max-width: 720px) {
+  .app {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .topbar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .review__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .waveform-section__head {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .settings__slider input {
+    width: 100%;
+  }
+}

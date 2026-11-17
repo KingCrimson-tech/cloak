@@ -40,6 +40,16 @@ export function exportToMp4(options, onProgress) {
   })
 }
 
+/** Turn mediabunny/encoder failures into actionable messages. */
+export function describeExportError(error) {
+  const message = error?.message || String(error)
+  if (/codec|encoder|avc|h\.264|aac/i.test(message)) {
+    return 'This browser could not encode H.264/AAC. Try Chrome or Edge and use a lower quality preset.'
+  }
+  if (/no video track/i.test(message)) return message
+  return message.startsWith('Export') ? message : `Export failed: ${message}`
+}
+
 /** Timestamped filename for the download, e.g. cloak-2026-11-16T19-42-10.mp4 */
 export function exportFilename(date = new Date()) {
   return `cloak-${date.toISOString().replace(/[:.]/g, '-').slice(0, 19)}.mp4`

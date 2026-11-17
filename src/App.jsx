@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
-import { CaptureSession } from './lib/capture.js'
-import { exportToMp4, exportFilename } from './lib/exporter.js'
+import { CaptureSession, describeCaptureError } from './lib/capture.js'
+import {
+  exportToMp4,
+  exportFilename,
+  describeExportError,
+} from './lib/exporter.js'
 import LiveView from './components/LiveView.jsx'
 import Review from './components/Review.jsx'
 import ErrorBanner from './components/ErrorBanner.jsx'
@@ -50,6 +54,7 @@ export default function App() {
     clearError()
     setWarning(null)
     setElapsed(0)
+    setPhase('requesting')
     const session = new CaptureSession()
     sessionRef.current = session
     session.onScreenTrack = (stream) => setScreenStream(stream)
@@ -63,7 +68,7 @@ export default function App() {
       sessionRef.current = null
       setScreenStream(null)
       setCamStream(null)
-      setError(err?.message || 'Could not start capture.')
+      setError(describeCaptureError(err))
     } finally {
       setBusy(false)
     }
@@ -117,7 +122,7 @@ export default function App() {
       )
       setDownload(blob, exportFilename())
     } catch (err) {
-      setError(err?.message || 'Export failed. Please try again.')
+      setError(describeExportError(err))
       setPhase('recorded')
     }
   }, [setDownload, setError, setPhase, setProgress])

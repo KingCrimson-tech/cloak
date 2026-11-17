@@ -1,46 +1,128 @@
 # Cloak
 
-Privacy-first screen & webcam recorder. Cloak records your screen and webcam as
+**Privacy-first screen & webcam recorder.** Cloak records your screen and webcam as
 separate streams, then trims and composites them into a single shareable MP4 —
 entirely on your machine. No server, no upload, no account, no telemetry.
 
-> **Status:** under active development. See `spec.md` for the full product spec
-> and phased build plan.
+Everything runs in the browser: decoding, compositing, encoding and muxing all
+happen locally with [mediabunny](https://mediabunny.dev/) and the Web Platform
+APIs. The only network requests are the ones your browser makes to load the
+app's own static assets.
 
 ## Requirements
 
 - Node.js 18+
-- A secure context: `localhost` or HTTPS (browser media APIs require it)
-- A Chromium-based browser (Chrome / Edge) is recommended
+- A **secure context**: `localhost` or HTTPS (required by `getDisplayMedia` /
+  `getUserMedia`)
+- A Chromium-based browser (Chrome / Edge recommended) with WebCodecs H.264
+  and AAC encoders
 
-## Run locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open the printed `localhost` URL (e.g. `http://localhost:5173`).
-
-## Build
+## Commands
 
 ```bash
-npm run build
-npm run preview
+npm install       # install dependencies
+npm run dev       # start the dev server on localhost
+npm run build     # produce a static bundle in dist/
+npm run preview   # serve the production build locally
+npm test          # run pure-logic unit tests (timeline / geometry math)
 ```
 
-The production build is emitted to `dist/` and is a fully static bundle — no
-runtime network requests beyond loading the app's own assets.
+Deploy the contents of `dist/` to any static host served over HTTPS.
 
-## Tech stack
+## How it works
 
-- React + Vite (JavaScript only, no TypeScript)
-- Zustand for state
-- mediabunny for demux / decode / encode / mux
-- Web Worker for export; Web Audio API for audio mixing
-- `MediaRecorder` (WebM) for capture; MP4 output (H.264 + AAC)
+### Two recordings, not a live composite
 
-## Privacy
+Screen and camera are captured as **two separate WebM files** by two
+`MediaRecorder` instances. A live `requestAnimationFrame` canvas composite would
+be throttled when the user switches to the app they are demoing — exactly when
+they need it. `MediaRecorder` is not throttled because `getDisplayMedia()`
+captures at OS level. Compositing is deferred to export time in a Web Worker.
 
-No analytics, external fonts/scripts, or runtime fetches to third parties.
-Everything is processed in-browser and stays on your device.
+```
+screen stream ──► MediaRecorder ──► screen.webm  (video + mixed audio)
+webcam stream ─► MediaRecorder ──► cam.webm     (video only)
+                                        │
+                    ┌───────────────────┘
+                    ▼  (export worker)
+     mediabunny: demux → decode → cut pauses → trim → composite PiP
+                 → rebase timestamps → encode H.264/AAC → mux → MP4 blob → download
+```
+
+Mic and system audio are mixed into one track with the Web Audio API
+(`MediaStreamAudioSourceNode`s → `MediaStreamDestination`) and attached only to
+the screen recording.
+
+### Active-time timebase
+
+Wall-clock time minus paused spans is the app's authoritative timebase. It is
+used for the capture timer, preview duration, trim bounds, waveform and the
+exported timestamps. The export worker converts active time back to wall-clock
+source ranges, skips paused ranges for both video and audio, and rebases output
+timestamps to zero — so pauses leave no frozen frames or silence.
+
+The camera starts a fraction of a second after the screen; `offsetSec` records
+that difference so camera frames can be looked up at `sourceTime - offsetSec`.
+
+### PiP geometry
+
+`pip = { x, y, size, mirror }` is the single source of truth. `(x, y)` is the
+circle centre normalized to the frame, `size` is the diameter as a fraction of
+frame width. The live preview, the draggable/resizable review overlay, corner
+presets and the export worker all consume the same geometry.
+
+### Local background blur
+
+When enabled, the camera track is routed through a hidden canvas: a heavily
+blurred frame with a feathered sharp centre, exposed via `canvas.captureStream(30)`.
+The processed track feeds both the live PiP and the camera recorder; the
+original mic audio is preserved. No model is fetched — the result is an
+approximate portrait-style blur, not person segmentation.
+
+## Module map
+
+```
+src/
+  App.jsx                 flow orchestration, capture timer, export/download UI
+  store.js                Zustand state machine, blobs/URLs, PiP geometry, settings
+  lib/
+    capture.js            streams, audio mix, two recorders, pause bookkeeping
+    blur.js               on-device background blur pipeline
+    waveform.js           decode audio → normalized amplitude peaks
+    timeline.js           active/wall time conversion + PiP clamping helpers
+    exporter.js           worker bridge, error description, download filename
+    export.worker.js      pause-aware trim + PiP composite + H.264/AAC mux
+  components/
+    LiveView.jsx          live screen + webcam PiP, timer, paused badge
+    Review.jsx            recorded preview, draggable PiP, trim, seek
+    Waveform.jsx          peak canvas, trim handles, playhead
+    Settings.jsx          corner presets, size, mirror, quality
+    ErrorBanner.jsx       errors and warnings
+  styles.css
+```
+
+## Privacy & cleanup
+
+- No analytics, external fonts/scripts, or runtime fetches to third parties.
+- Every native resource is released on success and error paths: media tracks,
+  `AudioContext`, the blur RAF loop, `VideoSample`s, object URLs and the export
+  worker. Object URLs are revoked when replaced or on reset.
+- A permission denial falls back to a screen-only recording with a warning; a
+  browser "Stop sharing" click ends the recording cleanly.
+
+## Known limits
+
+- **Chrome/Edge first.** Other browsers may lack the required H.264/AAC
+  encoders or WebM decoding; codec failures surface as a readable error.
+- **Keep the tab visible during blur.** The blur effect uses a canvas animation
+  loop that browsers throttle in background tabs. Recording itself continues
+  (MediaRecorder captures at OS level); only the blurred PiP may freeze.
+- **Everything is in memory.** Recordings and the final MP4 are held in RAM as
+  Blobs. Very long recordings can use a lot of memory; a full 5-minute session
+  is a realistic ceiling on modest hardware.
+- **WebM intermediate.** Capture produces WebM because that is what
+  `MediaRecorder` supports; the MP4 is created only at export time.
+- **Approximate blur.** The local effect is a feathered radial blur, not true
+  person segmentation.
+- **Single PiP layout, local download only.** Streaming to disk via the File
+  System Access API and multiple PiP layouts are deferred beyond v1.

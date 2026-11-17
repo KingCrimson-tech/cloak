@@ -14,6 +14,26 @@ const CAM_MIME_TYPES = [
   'video/webm',
 ]
 
+/** Turn browser-native capture errors into actionable messages. */
+export function describeCaptureError(error) {
+  switch (error?.name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Permission was denied. Allow screen and camera access in your browser, then try again.'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera or microphone was found. You can still record your screen.'
+    case 'NotReadableError':
+      return 'Your camera or microphone is already in use by another application.'
+    case 'NotSupportedError':
+      return 'This browser does not support the required capture APIs. Try Chrome or Edge.'
+    case 'SecurityError':
+      return 'Screen recording needs a secure context (HTTPS or localhost).'
+    default:
+      return error?.message || 'Something went wrong while starting capture.'
+  }
+}
+
 const canRecord = () =>
   typeof MediaRecorder !== 'undefined' && typeof navigator.mediaDevices !== 'undefined'
 
