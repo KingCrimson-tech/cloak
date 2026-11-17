@@ -306,6 +306,64 @@ select {
   text-transform: uppercase;
 }
 
+/* Waveform timeline. */
+.waveform-section {
+  margin-top: 1rem;
+}
+
+.waveform-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.waveform-section__head h3 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.waveform {
+  position: relative;
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+  touch-action: none;
+}
+
+.waveform__canvas {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.waveform__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  margin-left: -5px;
+  background: rgba(125, 211, 252, 0.85);
+  border-left: 1px solid #e0f2fe;
+  border-right: 1px solid #e0f2fe;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.waveform__handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  transform: translate(-50%, -50%);
+}
+
 /* Review: trim + settings. */
 .stage__pip--review {
   pointer-events: auto;

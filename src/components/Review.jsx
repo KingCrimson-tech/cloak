@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.js'
 import {
   activeToSource,
@@ -6,9 +6,12 @@ import {
   clampPipPosition,
   formatTime,
   maxPipSize,
+  sourceToActive,
 } from '../lib/timeline.js'
+import { computePeaks } from '../lib/waveform.js'
 import { pipStyle } from './LiveView.jsx'
 import Settings from './Settings.jsx'
+import Waveform from './Waveform.jsx'
 
 /**
  * Playback + trim review. The screen recording is the timeline authority; the
@@ -21,6 +24,9 @@ import Settings from './Settings.jsx'
 export default function Review() {
   const screenUrl = useStore((s) => s.screenUrl)
   const camUrl = useStore((s) => s.camUrl)
+  const screenBlob = useStore((s) => s.screenBlob)
+  const peaks = useStore((s) => s.peaks)
+  const setPeaks = useStore((s) => s.setPeaks)
   const offsetSec = useStore((s) => s.offsetSec)
   const activeDuration = useStore((s) => s.activeDuration)
   const keptRanges = useStore((s) => s.keptRanges)
@@ -35,6 +41,19 @@ export default function Review() {
   const camRef = useRef(null)
   const stageRef = useRef(null)
   const [interacting, setInteracting] = useState(false)
+  const [playhead, setPlayhead] = useState(0)
+
+  // Decode the mixed audio once the recording is available. No-audio or
+  // undecodable recordings simply produce an empty waveform.
+  useEffect(() => {
+    let cancelled = false
+    computePeaks(screenBlob).then((values) => {
+      if (!cancelled) setPeaks(values)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [screenBlob, setPeaks])
 
   const syncCam = useCallback(() => {
     const screen = screenRef.current
@@ -50,7 +69,22 @@ export default function Review() {
     }
     if (screen.paused || screen.ended) cam.pause()
     else cam.play().catch(() => {})
-  }, [offsetSec])
+    setPlayhead(sourceToActive(screen.currentTime, keptRanges))
+  }, [offsetSec, keptRanges])
+
+  const seek = useCallback(
+    (activeTime) => {
+      const screen = screenRef.current
+      if (!screen) return
+      try {
+        screen.currentTime = activeToSource(activeTime, keptRanges)
+      } catch {
+        /* ignore */
+      }
+      syncCam()
+    },
+    [keptRanges, syncCam],
+  )
 
   // Attach global pointer listeners and guarantee cleanup on every path.
   const beginInteraction = useCallback((onMove) => {
@@ -186,6 +220,23 @@ export default function Review() {
           </>
         )}
       </div>
+
+      {activeDuration > 0 && (
+        <div className="waveform-section">
+          <div className="waveform-section__head">
+            <h3>Timeline</h3>
+            <span className="muted">Click to seek · drag the blue handles to trim</span>
+          </div>
+          <Waveform
+            peaks={peaks}
+            activeDuration={activeDuration}
+            trim={trim}
+            playhead={playhead}
+            onTrim={setTrim}
+            onSeek={seek}
+          />
+        </div>
+      )}
 
       <div className="review__grid">
         <div className="trim-panel">
