@@ -73,11 +73,16 @@ presets and the export worker all consume the same geometry.
 
 ### Local background blur
 
-When enabled, the camera track is routed through a hidden canvas: a heavily
-blurred frame with a feathered sharp centre, exposed via `canvas.captureStream(30)`.
-The processed track feeds both the live PiP and the camera recorder; the
-original mic audio is preserved. No model is fetched — the result is an
-approximate portrait-style blur, not person segmentation.
+When enabled, the camera track is routed through a hidden canvas. For each
+frame the background colour is estimated from the frame's border (ignoring the
+bottom, where the subject usually is) and a soft alpha mask is built from
+per-pixel colour distance. A blurred background is composited with a sharp
+subject — there is no fixed circular vignette, so hair and shoulders stay
+sharp. Frames are pulled with `MediaStreamTrackProcessor` and pushed through
+`canvas.captureStream(0)` via `requestFrame()`, so the processed stream follows
+the camera's frame rate rather than the tab's animation loop and does not
+freeze when you switch tabs. The processed track feeds both the live PiP and
+the camera recorder; the original mic audio is preserved. No model is fetched.
 
 ## Module map
 
@@ -135,9 +140,12 @@ surface as a readable error rather than a silent failure.
 
 - **Chrome/Edge first.** Other browsers may lack the required H.264/AAC
   encoders or WebM decoding; codec failures surface as a readable error.
-- **Keep the tab visible during blur.** The blur effect uses a canvas animation
-  loop that browsers throttle in background tabs. Recording itself continues
-  (MediaRecorder captures at OS level); only the blurred PiP may freeze.
+- **Blur is a colour heuristic.** It works best against fairly uniform
+  backgrounds (a plain wall, for example). Busy or multi-colour backgrounds can
+  cause parts of the subject to be blurred or parts of the background to stay
+  sharp. It is not person segmentation and downloads no model. Browsers without
+  `MediaStreamTrackProcessor` use an rAF fallback that may freeze in background
+  tabs; Chrome/Edge use the frame-driven path.
 - **Everything is in memory.** Recordings and the final MP4 are held in RAM as
   Blobs. Very long recordings can use a lot of memory; a full 5-minute session
   is a realistic ceiling on modest hardware.

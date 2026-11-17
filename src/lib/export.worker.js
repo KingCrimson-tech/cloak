@@ -10,7 +10,7 @@ import {
   CanvasSource,
   AudioBufferSource,
 } from 'mediabunny'
-import { activeToSource, sourceToActive, pipRect } from './timeline.js'
+import { activeToSource, pipRect } from './timeline.js'
 
 const FPS = 30
 const TILE = 512
@@ -158,9 +158,13 @@ async function exportRecording(options) {
 }
 
 /**
- * Place every kept audio span into one contiguous AudioBuffer at its rebased
- * output position, so paused spans become silence-free gaps and trim starts
- * at zero. Silence between samples stays exactly where it belongs.
+ * Append kept audio spans into one gapless AudioBuffer.
+ *
+ * Samples are placed with a running frame cursor rather than converting each
+ * timestamp independently. Rounding every timestamp to a frame used to leave
+ * one-frame holes between packets, which showed up as audible clicks/gaps.
+ * Appending in output order keeps the audio continuous while paused spans are
+ * still removed and the trim start is rebased to zero.
  */
 async function writeAudio(sink, source, ranges, trimStart, clipDuration) {
   const first = await sink.getSample(0)
@@ -176,6 +180,7 @@ async function writeAudio(sink, source, ranges, trimStart, clipDuration) {
   const buffer = new AudioBuffer({ numberOfChannels: channels, length, sampleRate })
   const trimWallStart = activeToSource(trimStart, ranges)
   const trimWallEnd = activeToSource(trimStart + clipDuration, ranges)
+  let cursor = 0
 
   for (const [rangeStart, rangeEnd] of ranges) {
     const from = Math.max(rangeStart, trimWallStart)
@@ -188,26 +193,21 @@ async function writeAudio(sink, source, ranges, trimStart, clipDuration) {
         const end = Math.min(sample.timestamp + sample.duration, to)
         if (end <= start) continue
 
-        const outTime = sourceToActive(start, ranges) - trimStart
-        const destination = Math.max(0, Math.round(outTime * sampleRate))
         const frameOffset = Math.max(0, Math.round((start - sample.timestamp) * sampleRate))
-        const frameCount = Math.min(
-          Math.round((end - start) * sampleRate),
-          length - destination,
-        )
+        const frameCount = Math.min(Math.round((end - start) * sampleRate), length - cursor)
+        if (frameCount <= 0) continue
 
-        if (frameCount > 0) {
-          for (let channel = 0; channel < channels; channel++) {
-            const data = new Float32Array(frameCount)
-            sample.copyTo(data, {
-              planeIndex: channel,
-              format: 'f32-planar',
-              frameOffset,
-              frameCount,
-            })
-            buffer.copyToChannel(data, channel, destination)
-          }
+        for (let channel = 0; channel < channels; channel++) {
+          const data = new Float32Array(frameCount)
+          sample.copyTo(data, {
+            planeIndex: channel,
+            format: 'f32-planar',
+            frameOffset,
+            frameCount,
+          })
+          buffer.copyToChannel(data, channel, cursor)
         }
+        cursor += frameCount
       } finally {
         sample.close()
       }
