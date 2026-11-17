@@ -85,6 +85,19 @@ export function maxPipSize(x, y, aspect) {
   )
 }
 
+/**
+ * Pixel geometry the export worker uses to draw the camera circle. Keeping it
+ * here means the worker and the review overlay share the exact same math.
+ */
+export function pipRect(pip, width, height) {
+  return {
+    cx: pip.x * width,
+    cy: pip.y * height,
+    radius: (pip.size * width) / 2,
+    mirror: Boolean(pip.mirror),
+  }
+}
+
 /** Format seconds as `m:ss` (or `h:mm:ss`) for the HUD. */
 export function formatTime(seconds) {
   const total = Math.max(0, Math.floor(seconds))

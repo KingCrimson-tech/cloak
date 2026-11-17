@@ -18,7 +18,10 @@ export default function Waveform({
 }) {
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
+  const cleanupDragRef = useRef(null)
   const [width, setWidth] = useState(0)
+
+  useEffect(() => () => cleanupDragRef.current?.(), [])
 
   useEffect(() => {
     const element = wrapRef.current
@@ -89,7 +92,9 @@ export default function Waveform({
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', end)
         window.removeEventListener('pointercancel', end)
+        cleanupDragRef.current = null
       }
+      cleanupDragRef.current = end
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', end)
       window.addEventListener('pointercancel', end)

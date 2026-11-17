@@ -39,6 +39,15 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0)
   const [busy, setBusy] = useState(false)
 
+  // Last-resort teardown if the app is unmounted mid-capture.
+  useEffect(
+    () => () => {
+      sessionRef.current?.destroy()
+      sessionRef.current = null
+    },
+    [],
+  )
+
   // Free-running capture timer; reads active time from the session.
   useEffect(() => {
     if (phase !== 'recording' && phase !== 'paused') return

@@ -7,6 +7,7 @@ import {
   sourceToActive,
   clampPipPosition,
   maxPipSize,
+  pipRect,
 } from './timeline.js'
 
 test('no pauses: active time equals wall time', () => {
@@ -80,4 +81,47 @@ test('PiP size is bounded by the available space at its centre', () => {
   assert.equal(maxPipSize(0.5, 0.5, aspect), 0.4)
   assert.ok(maxPipSize(0.1, 0.1, aspect) < 0.2)
   assert.ok(maxPipSize(0.05, 0.5, aspect) <= 0.1)
+})
+
+test('trimming from a non-zero start rebases output timestamps to zero', () => {
+  const ranges = [
+    [0, 4],
+    [6, 10],
+  ]
+  const trimStart = 2
+  const duration = 4
+  assert.equal(activeToSource(trimStart, ranges), 2)
+  assert.equal(activeToSource(trimStart + duration, ranges), 8)
+
+  for (const offset of [0, 1, 2, 3]) {
+    const wall = activeToSource(trimStart + offset, ranges)
+    const rebased = sourceToActive(wall, ranges) - trimStart
+    assert.ok(Math.abs(rebased - offset) < 1e-9)
+  }
+})
+
+test('all four PiP corners map to valid export pixel geometry', () => {
+  const aspect = 16 / 9
+  const size = 0.2
+  for (const horizontal of ['left', 'right']) {
+    for (const vertical of ['top', 'bottom']) {
+      const position = clampPipPosition(
+        horizontal === 'right' ? 1 : 0,
+        vertical === 'bottom' ? 1 : 0,
+        size,
+        aspect,
+      )
+      const rect = pipRect({ ...position, size, mirror: true }, 1280, 720)
+      assert.ok(rect.radius > 0 && rect.radius <= 1280 / 2)
+      assert.ok(rect.cx - rect.radius >= -1e-9 && rect.cx + rect.radius <= 1280 + 1e-9)
+      assert.ok(rect.cy - rect.radius >= -1e-9 && rect.cy + rect.radius <= 720 + 1e-9)
+      assert.equal(rect.mirror, true)
+
+      // Mirroring is a canvas transform inside the circle; it never moves it.
+      assert.deepEqual(
+        pipRect({ ...position, size, mirror: false }, 1280, 720),
+        { ...rect, mirror: false },
+      )
+    }
+  }
 })

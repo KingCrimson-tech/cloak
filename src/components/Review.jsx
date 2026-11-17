@@ -40,7 +40,10 @@ export default function Review() {
   const screenRef = useRef(null)
   const camRef = useRef(null)
   const stageRef = useRef(null)
+  const cleanupDragRef = useRef(null)
   const [interacting, setInteracting] = useState(false)
+
+  useEffect(() => () => cleanupDragRef.current?.(), [])
   const [playhead, setPlayhead] = useState(0)
 
   // Decode the mixed audio once the recording is available. No-audio or
@@ -94,8 +97,10 @@ export default function Review() {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
+      cleanupDragRef.current = null
       setInteracting(false)
     }
+    cleanupDragRef.current = end
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', end)
     window.addEventListener('pointercancel', end)

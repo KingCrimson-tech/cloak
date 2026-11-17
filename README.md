@@ -110,6 +110,27 @@ src/
 - A permission denial falls back to a screen-only recording with a warning; a
   browser "Stop sharing" click ends the recording cleanly.
 
+## Verification
+
+Automated (`npm test`) covers the pure timebase and geometry logic: active-time
+conversion, pause ranges (including pause-then-stop), clamped bounds, trim from a
+non-zero start with timestamp rebasing, all four PiP corners, size limits and
+mirror-invariant export geometry. `npm run build` must also pass and produce only
+static assets.
+
+The following need a real browser and cannot be automated here:
+
+- Chrome / Edge end-to-end: record → pause/resume → stop → trim → export → download
+- Playback of `screen.webm` with both mic and system audio, and with camera denied
+- Clicking the browser's "Stop sharing" mid-record
+- Waveform display with and without audio, and scrubbing with trim handles
+- Background blur on/off, confirming no camera indicator is left on
+- Memory stability across repeated recordings
+
+Firefox and Safari are not primary targets: they may lack the H.264/AAC
+encoders or WebM decoding that the export pipeline needs. Unsupported codecs
+surface as a readable error rather than a silent failure.
+
 ## Known limits
 
 - **Chrome/Edge first.** Other browsers may lack the required H.264/AAC

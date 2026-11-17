@@ -10,7 +10,7 @@ import {
   CanvasSource,
   AudioBufferSource,
 } from 'mediabunny'
-import { activeToSource, sourceToActive } from './timeline.js'
+import { activeToSource, sourceToActive, pipRect } from './timeline.js'
 
 const FPS = 30
 const TILE = 512
@@ -107,29 +107,33 @@ async function exportRecording(options) {
     const wall = activeToSource(trimStart + outTime, keptRanges)
 
     const screenFrame = await screenSink.getSample(wall)
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, width, height)
-    if (screenFrame) {
-      screenFrame.draw(ctx, 0, 0, width, height)
-      screenFrame.close()
+    try {
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, width, height)
+      if (screenFrame) screenFrame.draw(ctx, 0, 0, width, height)
+    } finally {
+      screenFrame?.close()
     }
 
     if (camSink) {
       const camFrame = await camSink.getSample(Math.max(0, wall - offsetSec))
-      if (camFrame) {
-        tileCtx.clearRect(0, 0, TILE, TILE)
-        camFrame.drawWithFit(tileCtx, { fit: 'cover' })
-        camFrame.close()
+      try {
+        if (camFrame) {
+          tileCtx.clearRect(0, 0, TILE, TILE)
+          camFrame.drawWithFit(tileCtx, { fit: 'cover' })
 
-        const radius = (pip.size * width) / 2
-        ctx.save()
-        ctx.translate(pip.x * width, pip.y * height)
-        if (pip.mirror) ctx.scale(-1, 1)
-        ctx.beginPath()
-        ctx.arc(0, 0, radius, 0, Math.PI * 2)
-        ctx.clip()
-        ctx.drawImage(tile, -radius, -radius, radius * 2, radius * 2)
-        ctx.restore()
+          const rect = pipRect(pip, width, height)
+          ctx.save()
+          ctx.translate(rect.cx, rect.cy)
+          if (rect.mirror) ctx.scale(-1, 1)
+          ctx.beginPath()
+          ctx.arc(0, 0, rect.radius, 0, Math.PI * 2)
+          ctx.clip()
+          ctx.drawImage(tile, -rect.radius, -rect.radius, rect.radius * 2, rect.radius * 2)
+          ctx.restore()
+        }
+      } finally {
+        camFrame?.close()
       }
     }
 
@@ -179,31 +183,34 @@ async function writeAudio(sink, source, ranges, trimStart, clipDuration) {
     if (to <= from) continue
 
     for await (const sample of sink.samples(from, to)) {
-      const start = Math.max(sample.timestamp, from)
-      const end = Math.min(sample.timestamp + sample.duration, to)
-      if (end <= start) {
-        sample.close()
-        continue
-      }
+      try {
+        const start = Math.max(sample.timestamp, from)
+        const end = Math.min(sample.timestamp + sample.duration, to)
+        if (end <= start) continue
 
-      const outTime = sourceToActive(start, ranges) - trimStart
-      const destination = Math.max(0, Math.round(outTime * sampleRate))
-      const frameOffset = Math.max(0, Math.round((start - sample.timestamp) * sampleRate))
-      const frameCount = Math.min(Math.round((end - start) * sampleRate), length - destination)
+        const outTime = sourceToActive(start, ranges) - trimStart
+        const destination = Math.max(0, Math.round(outTime * sampleRate))
+        const frameOffset = Math.max(0, Math.round((start - sample.timestamp) * sampleRate))
+        const frameCount = Math.min(
+          Math.round((end - start) * sampleRate),
+          length - destination,
+        )
 
-      if (frameCount > 0) {
-        for (let channel = 0; channel < channels; channel++) {
-          const data = new Float32Array(frameCount)
-          sample.copyTo(data, {
-            planeIndex: channel,
-            format: 'f32-planar',
-            frameOffset,
-            frameCount,
-          })
-          buffer.copyToChannel(data, channel, destination)
+        if (frameCount > 0) {
+          for (let channel = 0; channel < channels; channel++) {
+            const data = new Float32Array(frameCount)
+            sample.copyTo(data, {
+              planeIndex: channel,
+              format: 'f32-planar',
+              frameOffset,
+              frameCount,
+            })
+            buffer.copyToChannel(data, channel, destination)
+          }
         }
+      } finally {
+        sample.close()
       }
-      sample.close()
     }
   }
 
