@@ -142,11 +142,6 @@ h2 {
   margin-bottom: 1rem;
 }
 
-.field-note {
-  margin: -0.5rem 0 1rem;
-  font-size: 0.8rem;
-}
-
 .setup__controls {
   display: flex;
   flex-wrap: wrap;

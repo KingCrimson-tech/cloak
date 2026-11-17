@@ -1,4 +1,3 @@
-import { createBlurPipeline } from './blur.js'
 import { activeDuration, keptRanges } from './timeline.js'
 
 const SCREEN_MIME_TYPES = [
@@ -42,13 +41,6 @@ function pickMimeType(candidates) {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || ''
 }
 
-function supportsCanvasCapture() {
-  return (
-    typeof document !== 'undefined' &&
-    typeof document.createElement('canvas').captureStream === 'function'
-  )
-}
-
 function stopTracks(stream) {
   stream?.getTracks?.().forEach((track) => {
     try {
@@ -61,20 +53,17 @@ function stopTracks(stream) {
 
 /**
  * Owns every native resource needed for a single capture session: the display
- * and camera streams, the optional blur pipeline, the Web Audio mix and the
- * two MediaRecorders. `destroy()` is safe to call repeatedly and on every
- * success/error path.
+ * and camera streams, the Web Audio mix and the two MediaRecorders. `destroy()`
+ * is safe to call repeatedly and on every success/error path.
  */
 export class CaptureSession {
   constructor() {
     this.screenStream = null
     this.camStream = null
-    this.processedCamStream = null
     this.mixedStream = null
     this.audioContext = null
     this.screenRecorder = null
     this.camRecorder = null
-    this.blurPipeline = null
 
     this.screenChunks = []
     this.camChunks = []
@@ -93,7 +82,7 @@ export class CaptureSession {
   }
 
   /** Acquire streams, build the audio mix and start both recorders. */
-  async start({ blur = false, onWarning, onEnded } = {}) {
+  async start({ onWarning, onEnded } = {}) {
     if (!canRecord()) {
       throw new Error(
         'This browser does not support the required capture APIs. Try Chrome or Edge over localhost or HTTPS.',
@@ -131,46 +120,21 @@ export class CaptureSession {
       )
     }
 
-    let camVideoTrack = this.camStream?.getVideoTracks()[0] || null
+    const camVideoTrack = this.camStream?.getVideoTracks()[0] || null
     const micTrack = this.camStream?.getAudioTracks()[0] || null
 
-    // 3. Optional local blur runs on the camera video track *before* it is
-    //    previewed or recorded. The original mic audio is preserved.
-    if (blur && camVideoTrack) {
-      if (supportsCanvasCapture()) {
-        this.blurPipeline = createBlurPipeline(camVideoTrack)
-        this.processedCamStream = this.blurPipeline.stream
-        const processedTrack = this.processedCamStream?.getVideoTracks()[0]
-        if (processedTrack) {
-          camVideoTrack = processedTrack
-        } else {
-          // Defensive: some browsers delay creating the captureStream track.
-          this.blurPipeline.destroy()
-          this.blurPipeline = null
-          this.processedCamStream = null
-          this.onWarning(
-            'Background blur is unavailable in this browser — using the raw camera.',
-          )
-        }
-      } else {
-        this.onWarning(
-          'Background blur is unavailable in this browser — using the raw camera.',
-        )
-      }
-    }
-
     if (camVideoTrack) {
-      this.onCamTrack(this.processedCamStream || this.camStream)
+      this.onCamTrack(this.camStream)
     }
 
-    // 4. Mix system audio and mic into one track for the screen recording.
+    // 3. Mix system audio and mic into one track for the screen recording.
     const systemTracks = this.screenStream.getAudioTracks()
     const mixedTrack = this.buildMixedAudioTrack([
       ...systemTracks.map((track) => ({ track, gain: 0.85 })),
       ...(micTrack ? [{ track: micTrack, gain: 1 }] : []),
     ])
 
-    // 5. Screen recorder: screen video + mixed audio (when available).
+    // 4. Screen recorder: screen video + mixed audio (when available).
     const screenRecordStream = new MediaStream([
       screenTrack,
       ...(mixedTrack ? [mixedTrack] : []),
@@ -186,7 +150,7 @@ export class CaptureSession {
       if (event.data && event.data.size) this.screenChunks.push(event.data)
     }
 
-    // 6. Camera recorder: video only.
+    // 5. Camera recorder: video only.
     if (camVideoTrack) {
       const camRecordStream = new MediaStream([camVideoTrack])
       const camMime = pickMimeType(CAM_MIME_TYPES)
@@ -200,7 +164,7 @@ export class CaptureSession {
       }
     }
 
-    // 7. Start recorders, recording wall-clock offsets for alignment.
+    // 6. Start recorders, recording wall-clock offsets for alignment.
     this.screenStart = performance.now()
     this.screenRecorder.start(250)
 
@@ -326,11 +290,7 @@ export class CaptureSession {
 
     stopTracks(this.screenStream)
     stopTracks(this.camStream)
-    stopTracks(this.processedCamStream)
     stopTracks(this.mixedStream)
-
-    this.blurPipeline?.destroy()
-    this.blurPipeline = null
 
     try {
       this.audioContext?.close()
@@ -345,7 +305,6 @@ export class CaptureSession {
     this.camChunks = []
     this.screenStream = null
     this.camStream = null
-    this.processedCamStream = null
     this.mixedStream = null
   }
 }

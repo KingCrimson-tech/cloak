@@ -30,7 +30,6 @@ const initial = {
   pip: { ...DEFAULT_PIP },
   frameAspect: 16 / 9,
   quality: 'medium',
-  blur: false,
 
   progress: 0,
   progressLabel: '',
@@ -49,7 +48,6 @@ export const useStore = create((set, get) => ({
   setWarning: (warning) => set({ warning }),
 
   setQuality: (quality) => set({ quality }),
-  setBlur: (blur) => set({ blur }),
 
   setPip: (patch) => set((state) => ({ pip: { ...state.pip, ...patch } })),
   resetPip: () => set({ pip: { ...DEFAULT_PIP } }),
@@ -125,7 +123,7 @@ export const useStore = create((set, get) => ({
     revoke(state.screenUrl)
     revoke(state.camUrl)
     revoke(state.downloadUrl)
-    set({ ...initial, pip: { ...state.pip }, quality: state.quality, blur: state.blur })
+    set({ ...initial, pip: { ...state.pip }, quality: state.quality })
   },
 }))
 

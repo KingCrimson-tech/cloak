@@ -14,7 +14,6 @@ export default function App() {
   const phase = useStore((s) => s.phase)
   const error = useStore((s) => s.error)
   const warning = useStore((s) => s.warning)
-  const blur = useStore((s) => s.blur)
   const quality = useStore((s) => s.quality)
   const pip = useStore((s) => s.pip)
   const progress = useStore((s) => s.progress)
@@ -25,7 +24,6 @@ export default function App() {
   const setError = useStore((s) => s.setError)
   const clearError = useStore((s) => s.clearError)
   const setWarning = useStore((s) => s.setWarning)
-  const setBlur = useStore((s) => s.setBlur)
   const setQuality = useStore((s) => s.setQuality)
   const setRecordings = useStore((s) => s.setRecordings)
   const setProgress = useStore((s) => s.setProgress)
@@ -70,7 +68,7 @@ export default function App() {
     session.onCamTrack = (stream) => setCamStream(stream)
     session.onEnded = () => finishRef.current?.()
     try {
-      await session.start({ blur, onWarning: setWarning })
+      await session.start({ onWarning: setWarning })
       setPhase('recording')
     } catch (err) {
       session.destroy()
@@ -81,7 +79,7 @@ export default function App() {
     } finally {
       setBusy(false)
     }
-  }, [blur, busy, clearError, setCamStream, setError, setPhase, setScreenStream, setWarning])
+  }, [busy, clearError, setCamStream, setError, setPhase, setScreenStream, setWarning])
 
   const finish = useCallback(async () => {
     const session = sessionRef.current
@@ -178,20 +176,7 @@ export default function App() {
                 <option value="high">High</option>
               </select>
             </label>
-            <label className="field field--toggle">
-              <input
-                type="checkbox"
-                checked={blur}
-                onChange={(e) => setBlur(e.target.checked)}
-              />
-              <span>Blur webcam background (on-device)</span>
-            </label>
           </div>
-          {blur && (
-            <p className="muted field-note">
-              Approximate canvas blur, processed locally. No model download or network request.
-            </p>
-          )}
           <button className="button button--primary" onClick={start} disabled={busy}>
             Start recording
           </button>
